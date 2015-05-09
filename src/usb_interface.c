@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <libusb-1.0/libusb.h>
 
-#include "protocol.h"
 #include "usb_interface.h"
 
 #define VND_IN  (LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE | LIBUSB_ENDPOINT_IN)
@@ -84,19 +83,19 @@ static uint8_t is_interesting(libusb_device *device, usb_device_id *device_id) {
  *
  * Return values:
  *   0 - device found
- *  -1 - unable to initialize libusb
- *  -2 - unable to get device list
- *  -3 - device not found
+ *  -1 .. -99 - libusb error code
+ *  -100 - unable to get device list
+ *  -101 - device not found
  */
 static int8_t device_by_id(libusb_device **found, usb_device_id *device_id) {
   int err = libusb_init(NULL);
   if (err)
-		return -1;
+		return err;
 
   libusb_device **list;
   ssize_t cnt = libusb_get_device_list(NULL, &list);
   if (cnt < 0)
-    return -2;
+    return -100;
 
   *found = NULL;
   for (ssize_t i = 0; i < cnt; i++) {
@@ -112,44 +111,29 @@ static int8_t device_by_id(libusb_device **found, usb_device_id *device_id) {
   if (*found != NULL)
     return 0;
   else
-    return -3;
+    return -101;
 }
 
-/* Gets NRF status of the host.
+/* Transfers two bytes to device.
  * Return values:
- *  -1 - device not found
- *  -2 - unable to open device
+ *  >= 0 - response size
+ *  -1 .. -99 - libusb error code
+ *  -100 - unable to get device list
+ *  -101 - device not found
+ *  -120 - unable to open device
  */
-int8_t get_host_nrf_status(usb_device_id *device_id, uint8_t *status) {
+int8_t transfer_data2(usb_device_id *device_id, uint8_t request, uint16_t data, uint8_t *buffer, uint8_t buffer_size) {
 
   libusb_device *device;
-  if (device_by_id(&device, device_id))
-    return -1;
+  int8_t err = device_by_id(&device, device_id);
+  if (err)
+    return err;
 
   libusb_device_handle *handle = NULL;
   if (libusb_open(device, &handle))
-    return -2;
+    return -120;
 
-  unsigned char buffer[256];
-  libusb_control_transfer(handle, VND_IN, USB_NRF_STATUS, 0, 0, buffer, sizeof(buffer), 1000);
-  libusb_close(handle);
-  libusb_unref_device(device);
-
-  *status = buffer[0];
-  return 0;
-}
-
-int8_t transfer_command1(usb_device_id *device_id, uint16_t data, uint8_t *buffer, uint8_t buffer_size) {
-
-  libusb_device *device;
-  if (device_by_id(&device, device_id))
-    return -1;
-
-  libusb_device_handle *handle = NULL;
-  if (libusb_open(device, &handle))
-    return -2;
-
-  int8_t reply_len = libusb_control_transfer(handle, VND_IN, USB_NRF_TRANSFER1, data, 0, buffer, buffer_size, 1000);
+  int8_t reply_len = libusb_control_transfer(handle, VND_IN, request, data, 0, buffer, buffer_size, 1000);
   libusb_close(handle);
   libusb_unref_device(device);
 

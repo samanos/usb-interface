@@ -8,14 +8,12 @@ ROOT_REL:= ../..
 ROOT_ABS:= $(LOCAL_PATH)/../..
 
 VENDOR_LIBUSB := $(ROOT_ABS)/vendor/libusb
-VENDOR_PROTOCOL := $(ROOT_ABS)/vendor/protocol
 
 LOCAL_SRC_FILES := $(ROOT_REL)/src/usb_interface.c
 
 LOCAL_C_INCLUDES += \
 	$(ROOT_ABS)/src \
-	$(ROOT_ABS)/vendor \
-	$(VENDOR_PROTOCOL)/src
+	$(ROOT_ABS)/vendor
 
 LOCAL_SHARED_LIBRARIES += libusb1.0
 
